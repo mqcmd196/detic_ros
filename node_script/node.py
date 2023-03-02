@@ -6,6 +6,7 @@ from jsk_recognition_msgs.msg import LabelArray, VectorArray
 from node_config import NodeConfig
 from rospy import Publisher, Subscriber
 from sensor_msgs.msg import Image
+from std_msgs.msg import String
 from wrapper import DeticWrapper
 
 from detic_ros.msg import SegmentationInfo
@@ -15,6 +16,7 @@ from detic_ros.srv import DeticSeg, DeticSegRequest, DeticSegResponse
 class DeticRosNode:
     detic_wrapper: DeticWrapper
     sub: Subscriber
+    vocab_sub: Subscriber
     # some debug image publisher
     pub_debug_image: Optional[Publisher]
     pub_debug_segmentation_image: Optional[Publisher]
@@ -38,6 +40,7 @@ class DeticRosNode:
             # As for large buff_size please see:
             # https://answers.ros.org/question/220502/image-subscriber-lag-despite-queue-1/?answer=220505?answer=220505#post-id-22050://answers.ros.org/question/220502/image-subscriber-lag-despite-queue-1/?answer=220505?answer=220505#post-id-220505
             self.sub = rospy.Subscriber('~input_image', Image, self.callback_image, queue_size=1, buff_size=2**24)
+            self.vocab_sub = rospy.Subscriber('~custom_vocab', String, self.callback_vocab, queue_size=1, buff_size=2**24)
             if node_config.use_jsk_msgs:
                 self.pub_segimg = rospy.Publisher('~segmentation', Image, queue_size=1)
                 self.pub_labels = rospy.Publisher('~detected_classes', LabelArray, queue_size=1)
@@ -93,6 +96,11 @@ class DeticRosNode:
         if self.detic_wrapper.node_config.verbose:
             time_elapsed_total = (rospy.Time.now() - msg.header.stamp).to_sec()
             rospy.loginfo('total elapsed time in callback {}'.format(time_elapsed_total))
+
+    def callback_vocab(self, msg: String):
+        print("callback_vocab start")
+        self.detic_wrapper.predictor.change_classfier(msg.data)
+        print("callback_vocab stop")
 
     def callback_srv(self, req: DeticSegRequest) -> DeticSegResponse:
         msg = req.image
