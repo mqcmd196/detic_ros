@@ -101,6 +101,7 @@ class DeticWrapper:
             path_dict[key] = os.path.join(pack_path, path_dict[key])
 
     def infer(self, msg: Image) -> InferenceRawResult:
+        self.class_names = self.predictor.metadata.get("thing_classes", None) # update
         # Segmentation image, detected classes, detection scores, visualization image
         img = _cv_bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
 
