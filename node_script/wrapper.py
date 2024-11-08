@@ -28,6 +28,7 @@ class InferenceRawResult:
     visualization: Optional[VisImage]
     header: Header
     detected_class_names: List[str]
+    class_names: List[str]
 
     def get_ros_segmentaion_image(self) -> Image:
         seg_img = _cv_bridge.cv2_to_imgmsg(self.segmentation_raw_image, encoding="32SC1")
@@ -50,9 +51,9 @@ class InferenceRawResult:
         return debug_seg_img
 
     def get_label_array(self) -> LabelArray:
-        labels = [Label(id=i + 1, name=name)
+        labels = [Label(id=i + 1, name=name) # label 0 is reserved for background label
                   for i, name
-                  in zip(self.class_indices, self.detected_class_names)]
+                  in enumerate(self.class_names)]
         lab_arr = LabelArray(header=self.header, labels=labels)
         return lab_arr
 
@@ -135,12 +136,8 @@ class DeticWrapper:
         # Initialize segmentation data
         data = np.zeros((img.shape[0], img.shape[1]), dtype=np.int32)
 
-        # largest to smallest order to reduce occlusion.
-        sorted_index = np.argsort([-mask.sum() for mask in pred_masks])
-        for i in sorted_index:
-            mask = pred_masks[i]
-            # label 0 is reserved for background label, so starting from 1
-            data[mask] = (i + 1)
+        for mask, mask_class in zip(pred_masks, class_indices):
+            data[mask] = mask_class + 1 # label 0 is reserved for background label, so starting from 1
 
         # Get class and score arrays
         detected_classes_names = [self.class_names[i] for i in class_indices]
@@ -150,5 +147,7 @@ class DeticWrapper:
             scores,
             visualized_output,
             msg.header,
-            detected_classes_names)
+            detected_classes_names,
+            self.class_names
+        )
         return result
